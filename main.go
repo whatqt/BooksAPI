@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strconv"
-
 	"os"
+	"strconv"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -90,8 +89,50 @@ func (m ManagementBooksHttp) get(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprint(w, info.Error)
 			return
 		}
-		fmt.Println(data["id"])
-		fmt.Fprint(w, book)
+		if data["id"] == "" {
+			fmt.Fprint(w, "Неверный словарь")
+		} else {
+			fmt.Fprint(w, book)
+		}
+	}
+}
+
+func (m ManagementBooksHttp) update(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "PATCH" {
+		id := r.URL.Query().Get("id")
+		if id == "" {
+			fmt.Fprint(w, "Not id in url")
+			return
+		}
+		var book Books
+		info := m.db.First(&book, id)
+		fmt.Println(info.Error)
+		fmt.Println(book)
+		if info.Error != nil {
+			fmt.Fprint(w, info.Error)
+			return
+		}
+		var data map[string]string
+		body, _ := ioutil.ReadAll(r.Body)
+		json.Unmarshal(body, &data)
+		if name, name_is := data["name"]; name_is {
+			book.Name = name
+		}
+		if author, author_is := data["author"]; author_is {
+			book.Author = author
+		}
+		if quantity_page, page_is := data["quantity_page"]; page_is {
+			value, _ := strconv.Atoi(quantity_page)
+			book.Quantity_page = value
+		}
+		if quantity_of_readers, reades_is := data["quantity_of_readers"]; reades_is {
+			value, _ := strconv.Atoi(quantity_of_readers)
+			book.Quantity_of_readers = value
+		}
+		m.db.Save(&book)
+		fmt.Fprint(w, "Book is successfully updated")
+		// fmt.Println(book)
+		// val, in :=
 	}
 }
 
@@ -109,6 +150,7 @@ func main() {
 	http.HandleFunc(base_path+"append", management_books_http.create)
 	http.HandleFunc(base_path+"delete", management_books_http.delete)
 	http.HandleFunc(base_path+"get", management_books_http.get)
+	http.HandleFunc(base_path+"patch/", management_books_http.update)
 	fmt.Println("Сервер запущен")
 	http.ListenAndServe(":8000", nil)
 }
